@@ -20,7 +20,8 @@ class Encoder: # defines new class called encoder
     def update(self):
         # Runs one update step on the encoder's timer counter 
         # to keep track of the change in count and check for counter reload
-        self.delta = self._tim_n.counter() - self.prev_count # computes delta between past and current pos
+        current_count = self._tim_n.counter()
+        self.delta = current_count - self.prev_count # use one counter snapshot
         current_time = ticks_us()
         if self.delta < -(self.ar + 1)/2: # if delta negative magnitude too large (overflow)
             self.delta += self.ar + 1 # add autoreload value + 1
@@ -28,9 +29,9 @@ class Encoder: # defines new class called encoder
             self.delta -= self.ar + 1 # subtract autoreload value - 1
 
         self.position += self.delta # add delta to position
-        self.prev_count = self._tim_n.counter() # set new previous count
+        self.prev_count = current_count # keep delta and previous count consistent
         self.dt = ticks_diff(current_time, self.prev_time ) / 1_000_000 # let dt be difference between prev and current
-        # divide by 1,000,000 to convert microseconds to seconds
+        # divide by 1,000,000 to convert microseconds to secondsag
         self.prev_time = current_time # set current to previous
 
     def get_position(self):
@@ -41,7 +42,7 @@ class Encoder: # defines new class called encoder
     def get_velocity(self):
         # Returns a measure of velocity using the the most recently updated
         # value of delta as determined within the update() method
-        if self.dt == 0:
+        if self.dt <= 0:
             return 0
         return self.delta/self.dt
 
