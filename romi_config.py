@@ -17,9 +17,9 @@ CALIBRATION_FILE = "line_calibration.json"
 
 
 class Settings:
-    motor_period_ms = 10
+    motor_period_ms = 20
     motor_priority = 2
-    line_period_ms = 20
+    line_period_ms = 40
     line_priority = 1
     ui_period_ms = 0
     ui_priority = 0
