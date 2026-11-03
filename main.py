@@ -23,7 +23,7 @@ from taskuser import TaskUser
 gc.collect()
 from taskmotor import TaskMotor
 gc.collect()
-from taskmotion import TaskLine, TaskIMU
+from taskmotion import TaskMotion
 gc.collect()
 from encoder import Encoder
 gc.collect()
@@ -209,9 +209,9 @@ def main():
                               right_print, banks['right'], velocity, loop,
                               ClosedLoop(settings.voltage_min, settings.voltage_max),
                               settings, 'right', line_run)
-        line_task = TaskLine(sensor, imu_data, line_run, line_data, line_print, settings, banks)
+        motion_task = TaskMotion(sensor, imu, imu_data, line_run, line_data, line_print, settings, banks)
        
-        imu_task = TaskIMU(imu, imu_data) # Create IMU task
+        # imu_task = TaskIMU(imu, imu_data) # Create IMU task
         
         ui.print_startup_menu()
         gc.collect()
@@ -220,9 +220,8 @@ def main():
         for owner, name, priority, period in (
                 (right_task, 'Right Motor', settings.motor_priority, settings.motor_period_ms),
                 (left_task, 'Left Motor', settings.motor_priority, settings.motor_period_ms),
-                (line_task, 'Line', settings.line_priority, settings.line_period_ms),
-                (ui, 'User Interf', settings.ui_priority, settings.ui_period_ms),
-                (imu_task, 'IMU', settings.imu_priority, settings.imu_period_ms)):
+                (motion_task, 'Motion', settings.motion_priority, settings.motion_period_ms),
+                (ui, 'User Interf', settings.ui_priority, settings.ui_period_ms)):
                 
             task_list.append(cotask.Task(owner.run(), name=name, priority=priority,
                                         period=period, profile=True))
