@@ -18,11 +18,11 @@ CALIBRATION_FILE = "line_calibration.json"
 
 class Settings:
     motor_period_ms = 20
-    motor_priority = 2
+    motor_priority = 3
     line_period_ms = 40
-    line_priority = 1
-    ui_period_ms = 0
-    ui_priority = 0
+    line_priority = 2
+    ui_period_ms = 80
+    ui_priority = 1
     samples_after_initial = 100
     battery_voltage = 9.0     # Update to your measured battery reference.
     voltage_min = -4.5
@@ -52,9 +52,9 @@ class Settings:
     white_clear_ms = 60 # Time in milliseconds to consider the white line as cleared.
 
     # IMU configuration
-    imu_period_ms = 10
+    imu_period_ms = 20
     imu_priority = 1
-    imu_stale_ms = 100
+    imu_stale_ms = 200
 
     # Lane change configuration
     maneuver_enabled = True
