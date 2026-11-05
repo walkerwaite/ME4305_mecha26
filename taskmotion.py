@@ -16,6 +16,7 @@ S4_TURN_BACK = 4
 S5_FOLLOW_NEW = 5
 S6_STOP = 6
 
+<<<<<<< HEAD
 class TaskIMU: # Imported IMU task into new MOTION TASK
     def __init__(self, imu, data):
         self.imu = imu
@@ -49,6 +50,10 @@ class TaskIMU: # Imported IMU task into new MOTION TASK
             yield 0
 
 class TaskLine:
+=======
+
+class TaskMotion:
+>>>>>>> origin/Walker's-Edits
     """Outer steering and lane-change state-machine owner.
 
     Positive centroid, positive yaw rate, and lane_direction = +1 all mean
@@ -56,9 +61,16 @@ class TaskLine:
     rightward lane change.
     """
 
+<<<<<<< HEAD
     def __init__(self, sensor, imu_data, run, data, print_flag, settings,
                  gain_banks):
         self.sensor = sensor
+=======
+    def __init__(self, sensor, imu, imu_data, run, data, print_flag, settings,
+                 gain_banks):
+        self.sensor = sensor
+        self.imu = imu
+>>>>>>> origin/Walker's-Edits
         self.imu_data = imu_data
         self.run_request = run
         self.data = data
@@ -68,6 +80,31 @@ class TaskLine:
         self.state = S0_IDLE
         self.started = False
 
+<<<<<<< HEAD
+=======
+    def _update_imu(self):
+        # Keep a previous fault visible to the motion task.
+        if self.imu_data.fault:
+            self.imu_data.valid = False
+            return
+
+        try:
+            heading = self.imu.get_heading()
+            yaw_rate = self.imu.get_yaw_rate()
+
+            if not (isfinite(heading) and isfinite(yaw_rate)):
+                raise ValueError("Nonfinite IMU measurement")
+
+            self.imu_data.heading_rad = heading
+            self.imu_data.yaw_rate_rad_s = yaw_rate
+            self.imu_data.updated_us = ticks_us()
+            self.imu_data.valid = True
+
+        except (OSError, ValueError, RuntimeError) as error:
+            self.imu_data.valid = False
+            self.imu_data.fault = str(error) or "IMU read failed"     
+
+>>>>>>> origin/Walker's-Edits
     def _prepare(self):
         r, s = self.run_request, self.settings
 
@@ -406,11 +443,19 @@ class TaskLine:
 
             else:
                 raise RuntimeError(
+<<<<<<< HEAD
                     "Invalid active TaskLine state: " + str(self.state)
+=======
+                    "Invalid active TaskMotion state: " + str(self.state)
+>>>>>>> origin/Walker's-Edits
                 )
 
     def run(self):
         while True:
+<<<<<<< HEAD
+=======
+            self._update_imu()
+>>>>>>> origin/Walker's-Edits
             r = self.run_request
             try:
                 if self.state == S0_IDLE:
@@ -456,7 +501,11 @@ class TaskLine:
                         self.state = S0_IDLE
 
                 else:
+<<<<<<< HEAD
                     raise RuntimeError("Invalid TaskLine state")
+=======
+                    raise RuntimeError("Invalid TaskMotion state")
+>>>>>>> origin/Walker's-Edits
 
             except (ValueError, TypeError, RuntimeError, OSError) as error:
                 self._stop("failed", str(error))
