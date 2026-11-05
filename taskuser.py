@@ -1,10 +1,7 @@
 """USB VCP owner: cooperative menus, numeric entry, and response transfer."""
 
-<<<<<<< HEAD
-=======
 import gc
 
->>>>>>> origin/Walker's-Edits
 from pyb import USB_VCP, delay
 from math import isfinite
 from line_calibration import load_calibration, save_calibration
@@ -337,26 +334,14 @@ class TaskUser:
         lines.append("# END HEADER")
         return tuple(lines)
 
-<<<<<<< HEAD
-    def _finish_output(self, marker):
-=======
 
     def _finish_output(self, marker):
         was_paired = self.paired_output
 
->>>>>>> origin/Walker's-Edits
         self.print.print_flag = False
         self.data = self.flag = self.print = None
         self.header_lines = ()
         self.row_index = 0
-<<<<<<< HEAD
-        # Be ready BEFORE emitting the marker: the PC can send k immediately.
-        self.state = S1_INPUT
-        self.paired_output = False
-        print(marker)
-        self.print_prompt()
-
-=======
 
         self.state = S1_INPUT
         self.paired_output = False
@@ -370,7 +355,6 @@ class TaskUser:
             gc.collect()
 
 
->>>>>>> origin/Walker's-Edits
     def report_shutdown(self, reason="exit", message=""):
         # main calls this only after disabling both motors.
         if self.data is not None:
