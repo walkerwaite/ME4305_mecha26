@@ -1,6 +1,6 @@
 # ME 4305 Romi Firmware: Lab 0x08
 
-**Checkpoint:** `Lab 0x08 CHECKPOINT: Submission Checkpoint with README`.  
+**Checkpoint:** `Lab 0x08 CHECKPOINT: Rename README.txt to README.md`.  
 **Entry point:** `main.py` on the Romi MicroPython board.
 
 This checkpoint combines the former line-following and IMU tasks into one `TaskMotion`, retaining the individual wheel PI-FF controllers and USB test interface. It updates the task periods and priorities such that starvation of the user task no longer occurs.
