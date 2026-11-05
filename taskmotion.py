@@ -16,39 +16,8 @@ S4_TURN_BACK = 4
 S5_FOLLOW_NEW = 5
 S6_STOP = 6
 
-class TaskIMU: # Imported IMU task into new MOTION TASK
-    def __init__(self, imu, data):
-        self.imu = imu
-        self.data = data
 
-    def run(self):
-        while True:
-            # Keep a previous fault visible to TaskLine.
-            # Restarting the application creates a fresh IMUData object.
-            if self.data.fault:
-                self.data.valid = False
-                yield 0
-                continue
-
-            try:
-                heading = self.imu.get_heading()
-                yaw_rate = self.imu.get_yaw_rate()
-
-                if not (isfinite(heading) and isfinite(yaw_rate)):
-                    raise ValueError("Nonfinite IMU measurement")
-
-                self.data.heading_rad = heading
-                self.data.yaw_rate_rad_s = yaw_rate
-                self.data.updated_us = ticks_us()
-                self.data.valid = True
-
-            except (OSError, ValueError, RuntimeError) as error:
-                self.data.valid = False
-                self.data.fault = str(error) or "IMU read failed"
-
-            yield 0
-
-class TaskLine:
+class TaskMotion:
     """Outer steering and lane-change state-machine owner.
 
     Positive centroid, positive yaw rate, and lane_direction = +1 all mean
@@ -56,9 +25,10 @@ class TaskLine:
     rightward lane change.
     """
 
-    def __init__(self, sensor, imu_data, run, data, print_flag, settings,
+    def __init__(self, sensor, imu, imu_data, run, data, print_flag, settings,
                  gain_banks):
         self.sensor = sensor
+        self.imu = imu
         self.imu_data = imu_data
         self.run_request = run
         self.data = data
@@ -67,6 +37,28 @@ class TaskLine:
         self.gain_banks = gain_banks
         self.state = S0_IDLE
         self.started = False
+
+    def _update_imu(self):
+        # Keep a previous fault visible to the motion task.
+        if self.imu_data.fault:
+            self.imu_data.valid = False
+            return
+
+        try:
+            heading = self.imu.get_heading()
+            yaw_rate = self.imu.get_yaw_rate()
+
+            if not (isfinite(heading) and isfinite(yaw_rate)):
+                raise ValueError("Nonfinite IMU measurement")
+
+            self.imu_data.heading_rad = heading
+            self.imu_data.yaw_rate_rad_s = yaw_rate
+            self.imu_data.updated_us = ticks_us()
+            self.imu_data.valid = True
+
+        except (OSError, ValueError, RuntimeError) as error:
+            self.imu_data.valid = False
+            self.imu_data.fault = str(error) or "IMU read failed"     
 
     def _prepare(self):
         r, s = self.run_request, self.settings
@@ -406,11 +398,12 @@ class TaskLine:
 
             else:
                 raise RuntimeError(
-                    "Invalid active TaskLine state: " + str(self.state)
+                    "Invalid active TaskMotion state: " + str(self.state)
                 )
 
     def run(self):
         while True:
+            self._update_imu()
             r = self.run_request
             try:
                 if self.state == S0_IDLE:
@@ -456,7 +449,7 @@ class TaskLine:
                         self.state = S0_IDLE
 
                 else:
-                    raise RuntimeError("Invalid TaskLine state")
+                    raise RuntimeError("Invalid TaskMotion state")
 
             except (ValueError, TypeError, RuntimeError, OSError) as error:
                 self._stop("failed", str(error))

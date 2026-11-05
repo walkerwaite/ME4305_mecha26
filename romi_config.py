@@ -17,10 +17,14 @@ CALIBRATION_FILE = "line_calibration.json"
 
 
 class Settings:
-    motor_period_ms = 10
+    motor_period_ms = 40
     motor_priority = 2
-    line_period_ms = 20
-    line_priority = 1
+
+    # Include motion period and priority
+    motion_period_ms = 60
+    motion_priority = 1
+    line_period_ms = motion_period_ms
+
     ui_period_ms = 0
     ui_priority = 0
     samples_after_initial = 100
@@ -49,12 +53,10 @@ class Settings:
     all_black_weight_min = 0.99  # Minimum weight for the black line in the line-following algorithm.
     line_detect_weight = 0.01 # Weight for detecting the line in the line-following algorithm.
 
-    white_clear_ms = 60 # Time in milliseconds to consider the white line as cleared.
+    white_clear_ms = 90 # Time in milliseconds to consider the white line as cleared.
 
     # IMU configuration
-    imu_period_ms = 10
-    imu_priority = 1
-    imu_stale_ms = 100
+    imu_stale_ms = 200
 
     # Lane change configuration
     maneuver_enabled = True
