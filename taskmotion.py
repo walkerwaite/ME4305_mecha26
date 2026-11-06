@@ -362,11 +362,9 @@ class TaskMotion:
             # Preserve a fault reported by either motor task.
             if r.fault:
                 self._stop("failed", r.fault)
-                return
 
             if r.stop:
                 self._stop("stopped", "User stop")
-                return
 
             # Check IMU health throughout the maneuver.
             if self.maneuver_enabled:
