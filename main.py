@@ -1,4 +1,4 @@
-"""Lab 0x08. Contains combined TaskLine and TaskIMU into one MOTION_TASK.
+"""Lab 0x06 application. Copy to Romi as main.py; run PC scripts on the computer.
 
 Startup: motors off -> calibration/reuse/motor-only -> scheduler.
 Right encoder: TIM2 CH1 PA15, CH2 PB3 (moved away from ADC PA0/PA1).
@@ -16,34 +16,33 @@ Pin(Pin.cpu.C6, Pin.OUT_PP, value=0)  # Left motor sleep
 
 import gc
 import cotask
-import sys
 
 gc.collect()
 from taskuser import TaskUser
+
 gc.collect()
 from taskmotor import TaskMotor
+
 gc.collect()
-from taskmotion import TaskMotion
+from taskline import TaskLine
+
 gc.collect()
 from encoder import Encoder
+
 gc.collect()
 from motordriver import MotorDriver
+
 gc.collect()
 from closedloop import ClosedLoop
+
 gc.collect()
 from linesensor import LineSensor
+
 gc.collect()
 from romi_config import Settings
+
 gc.collect()
 from array import array
-
-# Lab 0x07 imports
-from pyb import I2C
-from imudriver import BNO055
-from imu_calibration import startup_calibration
-
-# Sleep functionality
-from time import sleep_ms
 
 
 class Value:
@@ -96,16 +95,10 @@ class MotorData:
 
 class LineData:
     def __init__(self, capacity):
-        self.capacity = capacity
-        self.columns = ()
+        self.columns = tuple(array('f', [0] * capacity) for _ in range(9))
         self.reset()
 
     def reset(self):
-        if not self.columns:
-            self.columns = tuple(
-                array('f', [0] * self.capacity) for _ in range(9)
-            )
-
         self.count, self.metadata = 0, {}
         self.status, self.reason = "idle", ""
 
@@ -123,7 +116,7 @@ class LineData:
         self.columns = ()
 
 class LineRun:
-    """Motion task for handling line following and outer wheel requests."""
+    """TaskLine owns lifecycle; TaskMotor owns ready/stopped and telemetry slots."""
     def __init__(self, duration):
         self.request = None       # None, "line", or "straight" (outer loop off).
         self.active = self.running = self.stop = False
@@ -138,17 +131,6 @@ class LineRun:
         self.base = Value(1000.0)
         self.gain = Value(30.0)    # (counts/s)/mm; provisional outer P gain.
         self.duration = Value(duration)
-
-class IMUData:
-    """Latest measurements published by Motion Task.
-        Collects heading [rad], yaw rate [rad/s], and timestamp [us]."""
-
-    def __init__(self):
-        self.heading_rad = 0.0
-        self.yaw_rate_rad_s = 0.0
-        self.updated_us = 0
-        self.valid = False
-        self.fault = ""
 
 
 
@@ -181,32 +163,11 @@ def main():
         line_data = LineData(capacity)
         logs.extend((left_data, right_data, line_data))
         line_run = LineRun(settings.line_duration_s)
-        line_run.base.value = settings.maneuver_base_speed
         ui = TaskUser(left_data, left_flag, left_print, right_data, right_flag,
                       right_print, exit_flag, duty, banks, velocity, loop,
                       settings, line_run, line_data, line_print, sensor)
-
-        # Integrate IMU into system, calibrate, and pass to TaskLine for lane-change control.
-        # Use the I2C bus number and wiring specified for your lab hardware.
-        # pyb.I2C selects the hardware SCL/SDA pins from the bus number.
-        
-        # Reset the IMU through PC9 before initialization.
-        imu_reset = Pin(Pin.cpu.C9, Pin.OUT_OD, value=0)
-        sleep_ms(5)
-        imu_reset.high()
-
-        # Initialize I2C communication and the IMU driver.
-        imu_i2c = I2C(1, I2C.CONTROLLER, baudrate=100_000)
-        imu = BNO055(imu_i2c, reset_pin=imu_reset)
-        imu_data = IMUData()
-
-        # Startup calibration: load saved offsets or calibrate and save; call BEFORE scheduling.
-        startup_calibration(imu)
-       
         # Calibration deliberately precedes task creation and profiling.
         ui.calibrate_startup()
-
-
         left_task = TaskMotor(l_encoder, left, duty, left_data, left_flag,
                              left_print, banks['left'], velocity, loop,
                              ClosedLoop(settings.voltage_min, settings.voltage_max),
@@ -215,10 +176,7 @@ def main():
                               right_print, banks['right'], velocity, loop,
                               ClosedLoop(settings.voltage_min, settings.voltage_max),
                               settings, 'right', line_run)
-        motion_task = TaskMotion(sensor, imu, imu_data, line_run, line_data, line_print, settings, banks)
-       
-        # imu_task = TaskIMU(imu, imu_data) # Create IMU task
-        
+        line_task = TaskLine(sensor, line_run, line_data, line_print, settings, banks)
         ui.print_startup_menu()
         gc.collect()
         task_list = cotask.TaskList()
@@ -226,9 +184,8 @@ def main():
         for owner, name, priority, period in (
                 (right_task, 'Right Motor', settings.motor_priority, settings.motor_period_ms),
                 (left_task, 'Left Motor', settings.motor_priority, settings.motor_period_ms),
-                (motion_task, 'Motion', settings.motion_priority, settings.motion_period_ms),
+                (line_task, 'Line', settings.line_priority, settings.line_period_ms),
                 (ui, 'User Interf', settings.ui_priority, settings.ui_period_ms)):
-                
             task_list.append(cotask.Task(owner.run(), name=name, priority=priority,
                                         period=period, profile=True))
         while not exit_flag.exit_flag:
@@ -236,11 +193,7 @@ def main():
     except KeyboardInterrupt:
         reason = 'interrupted'
     except Exception as error:
-            right_sleep.low()
-            left_sleep.low()
-
-            sys.print_exception(error)
-            reason, message = "failed", str(error)
+        reason, message = 'failed', str(error)
     finally:
         right_sleep.low()
         left_sleep.low()
@@ -248,15 +201,6 @@ def main():
             motor.disable()
         if sensor is not None:
             sensor.close()
-
-            # Release sensor acquisition buffers and arrays.
-            sensor.buffers = ()
-            sensor.adcs = ()
-            sensor.raw = None
-            sensor.weights = None
-            sensor.white = None
-            sensor.span = None
-            sensor.positions = None
         if ui is not None:
             ui.report_shutdown(reason, message)
         elif message:
@@ -275,13 +219,9 @@ def main():
             ui.header_lines = ()
             ui.pending_commands.clear()
             ui.char_buf.clear()
-
-            # CHECK UI TASK
-            print("Keyboard checks during motion:", ui.motion_input_checks)
-        
+        gc.collect()
         if task_list is not None:
             try:
-                gc.collect()
                 print("\nTask Profile:")
                 print(task_list.profile())
             except MemoryError:
