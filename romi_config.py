@@ -10,21 +10,17 @@ CHANNEL_1_ON_LEFT = None
 CTRL_PINS = ("B2", "H1")
 ADC_TIMER = 6                 # TIM1/2 encoders, TIM3 PWM, TIM6 ADC only.
 ADC_HZ = 5000                # 13 * 5000 = 65000 conversions/s.
-ADC_SAMPLES = 8             # About 2 ms blocking acquisition per update.
+ADC_SAMPLES = 10             # About 2 ms blocking acquisition per update.
 CALIBRATION_BATCHES = 50
 MIN_SPAN = 10.0              # ADC counts; verify against measured noise/contrast.
 CALIBRATION_FILE = "line_calibration.json"
 
 
 class Settings:
-    motor_period_ms = 40
+    motor_period_ms = 10
     motor_priority = 2
-
-    # Include motion period and priority
-    motion_period_ms = 60
-    motion_priority = 1
-    line_period_ms = motion_period_ms
-
+    line_period_ms = 20
+    line_priority = 1
     ui_period_ms = 0
     ui_priority = 0
     samples_after_initial = 100
@@ -39,46 +35,11 @@ class Settings:
     preparation_timeout_ms = 3000
     rest_velocity_limit = 50.0
     rest_samples_required = 10
-    line_duration_s = 20.0
+    line_duration_s = 10.0
     line_max_duration_s = 30.0
-    line_log_period_ms = 250  # Control remains 20 ms; changed this from 100 to 250 ms for storage reasons
+    line_log_period_ms = 100  # Control remains 20 ms; log every fifth update.
     wheel_speed_max = 3000 # counts/s; reduce to your experimentally tested range.
     correction_max = 1000   # counts/s; also capped to keep both requests in range.
     line_stale_ms = 100      # Stop if the outer task stops refreshing requests.
     line_gain_max = 100.0    # (counts/s)/mm, entry bound only.
-
-    m_per_encoder_count = 0.000048611  # meters per encoder count
-    
-    white_weight_max = 0.009  # Maximum weight for the white line in the line-following algorithm.
-    all_black_weight_min = 0.99  # Minimum weight for the black line in the line-following algorithm.
-    line_detect_weight = 0.01 # Weight for detecting the line in the line-following algorithm.
-
-    white_clear_ms = 90 # Time in milliseconds to consider the white line as cleared.
-
-    # IMU configuration
-    imu_stale_ms = 200
-
-    # Lane change configuration
-    maneuver_enabled = True
-
-    # +1 = move left, -1 = move right, 0 = no lane change
-    lane_direction = 1
-
-    # Measured from the grid with 25mm grid, 
-    # four intervals = 100mm, 0.1m
-    line_spacing_m = 0.1
-
-    # Begin turn with base speeds and yaw rates
-    maneuver_base_speed = 500.0  # counts/s
-    yaw_rate_ref_rad_s = 0.6 # magnitude only
-    yaw_rate_gain = 200 # (counts/s)/(rad/s)
-
-    # Existing line following before departure
-    initial_follow_time_s = 1.0
-
-    # Background table displacement
-    turnback_displacement_m = 0.03 # meters
-
-    # Safety:
-    maneuver_timeout_s = 15.0 # seconds, stop if not completed in this time
 

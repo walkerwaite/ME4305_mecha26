@@ -89,33 +89,18 @@ class LineSensor:
             self.span[i] = calibration["black"][i] - calibration["white"][i]
         self.calibrated = True
 
-    def read(self, calculate_centroid=True, refresh=True):
-        # Now, sensor.read() will acquire new weights and calculate centroid
-        # If calculate_centroid is False, it will only update the weights without computing the centroid.
-        # If refresh is False, it will use the last acquired raw readings without fetching new ones.
+    def read(self):
         if not self.calibrated:
             raise ValueError("Line sensor is not calibrated")
-
-        # Refresh the raw sensor readings if requested.
-        if refresh:
-            self.read_raw()
-            total = 0.0
-
-            for i in range(13):
-                weight = min(1.0, max(0.0, (float(self.raw[i]) - self.white[i]) / self.span[i]))
-                self.weights[i] = weight
-                total += weight
-
-            self.total_weight = total
-        
-        if not calculate_centroid or self.total_weight <= 0:
-            return None
-
-        moment = 0.0
+        self.read_raw()
+        total = moment = 0.0
         for i in range(13):
-            moment += float(self.weights[i] * self.positions[i])
-        
-        return moment / self.total_weight
+            w = min(1.0, max(0.0, (float(self.raw[i]) - self.white[i]) / self.span[i]))
+            self.weights[i] = w
+            total += w
+            moment += w * self.positions[i]
+        self.total_weight = total
+        return None if total <= 0 else moment / total
 
     def close(self):
         for control in self.controls:
