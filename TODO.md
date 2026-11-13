@@ -1,2 +1,0 @@
-- [ ] Verify line following function in 90 deg turn
-- [ ] Research heading for breaking out of circle
