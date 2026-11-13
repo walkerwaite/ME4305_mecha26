@@ -1,7 +1,7 @@
 """PI velocity feedback plus linear velocity feedforward, in volts.
 
 u = K_P * (v_sp - vel) + integral_voltage + K_FF * v_sp.
-K_P and K_FF: V/(counts/s); K_I: V/count; dt: seconds.
+K_P and K_FF: V/(rad/s); K_I: V/rad; dt: seconds.
 K_FF is a velocity slope, not a static-friction/breakaway-voltage offset.
 """
 from math import isfinite

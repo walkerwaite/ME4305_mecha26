@@ -13,15 +13,15 @@ S4_DIGIT = 4
 S5_PARAM = 5
 S6_LINE = 6
 
-OPEN_HEADER = "time_ms,position_counts,velocity_counts_per_s"
+OPEN_HEADER = "time_ms,position_counts,velocity_rad_per_s"
 
 CLOSED_HEADER = (
-    "time_ms,position_counts,setpoint_counts_per_s,"
-    "velocity_counts_per_s,voltage_command_V")
+    "time_ms,position_counts,setpoint_rad_per_s,"
+    "velocity_rad_per_s,voltage_command_V")
 
-LINE_HEADER = ("time_ms,centroid_mm,total_weight,left_setpoint_counts_per_s,"
-               "right_setpoint_counts_per_s,left_velocity_counts_per_s,"
-               "right_velocity_counts_per_s,left_voltage_V,right_voltage_V")
+LINE_HEADER = ("time_ms,centroid_mm,total_weight,left_setpoint_rad_per_s,"
+               "right_setpoint_rad_per_s,left_velocity_rad_per_s,"
+               "right_velocity_rad_per_s,left_voltage_V,right_voltage_V")
 
 
 class TaskUser:
@@ -72,10 +72,10 @@ class TaskUser:
                 ("a/A", "Apply subsequent gains to BOTH wheels (default)"),
                 ("1", "Apply subsequent gains to LEFT wheel"),
                 ("2", "Apply subsequent gains to RIGHT wheel"),
-                ("p/P", "Enter proportional gain K_P [V/(counts/s)]"),
-                ("i/I", "Enter integral gain K_I [V/count]"),
-                ("f/F", "Enter feedforward gain K_FF [V/(counts/s)]"),
-                ("v/V", "Enter signed velocity setpoint [counts/s]"),
+                ("p/P", "Enter proportional gain K_P [V/(rad/s)]"),
+                ("i/I", "Enter integral gain K_I [V/rad]"),
+                ("f/F", "Enter feedforward gain K_FF [V/(rad/s)]"),
+                ("v/V", "Enter signed velocity setpoint [rad/s]"),
                 ("l/L", "Run CLOSED-loop PI-FF response on left motor"),
                 ("r/R", "Run CLOSED-loop PI-FF response on right motor"),
                 ("b/B", "Run BOTH wheels at entered velocity; outer loop disabled"),
@@ -84,8 +84,8 @@ class TaskUser:
                 ("e/E", "Exit program safely")))
 
         self.line_menu_lines = self._menu("ME 4305 Line Following Menu", (
-            ("b/B", "Enter base wheel velocity [counts/s]"),
-            ("p/P", "Enter outer P gain [(counts/s)/mm]"),
+            ("b/B", "Enter base wheel velocity [rad/s]"),
+            ("p/P", "Enter outer P gain [(rad/s)/mm]"),
             ("t/T", "Enter finite run duration [s]"),
             ("g/G", "Start line following and collect data"),
             ("s/S", "Stop motion and transfer acquired data"),
@@ -510,7 +510,7 @@ class TaskUser:
                     elif command == "p":
                         self.digit_entry("K_P", "Enter proportional gain Kp: ")
                     elif command == "v":
-                        self.digit_entry("V_sp", "Enter setpoint velocity [counts/s]: ")
+                        self.digit_entry("V_sp", "Enter setpoint velocity [rad/s]: ")
                     elif command == "h":
                         self.loop_type.value = "open"
                         self.menu_index = 0
@@ -533,9 +533,9 @@ class TaskUser:
                 else:
                     command = self._next_command(incoming)
                     if command == "b":
-                        self.digit_entry("base", "Enter base velocity [counts/s]: ")
+                        self.digit_entry("base", "Enter base velocity [rad/s]: ")
                     elif command == "p":
-                        self.digit_entry("outer_gain", "Enter outer gain [(counts/s)/mm]: ")
+                        self.digit_entry("outer_gain", "Enter outer gain [(rad/s)/mm]: ")
                     elif command == "t":
                         self.digit_entry("duration", "Enter run duration [s]: ")
                     elif command == "g":

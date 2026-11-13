@@ -39,7 +39,7 @@ gc.collect()
 from linesensor import LineSensor
 
 gc.collect()
-from romi_config import Settings
+from romi_config import Settings, COUNTS_PER_RADIAN, RADIANS_PER_COUNT
 
 gc.collect()
 from array import array
@@ -64,9 +64,9 @@ class ExitFlag:
 
 class Gains:
     def __init__(self):
-        self.K_P = Value(0.001)
-        self.K_I = Value(0.01)
-        self.K_FF = Value(0.002)
+        self.K_P = Value(0.001 * COUNTS_PER_RADIAN)
+        self.K_I = Value(0.01 * COUNTS_PER_RADIAN)
+        self.K_FF = Value(0.002 * COUNTS_PER_RADIAN)
 
 class MotorData:
     def __init__(self, capacity):
@@ -122,14 +122,14 @@ class LineRun:
         self.active = self.running = self.stop = False
         self.ready = [False, False]
         self.stopped = [True, True]
-        self.target = [0.0, 0.0] # left, right, encoder counts/s
+        self.target = [0.0, 0.0] # left and right wheel speeds in rad/s
         self.velocity = [0.0, 0.0]
         self.voltage = [0.0, 0.0]
         self.updated_us = 0
         self.fault = ""
-        self.straight_speed = 400.0
-        self.base = Value(1000.0)
-        self.gain = Value(30.0)    # (counts/s)/mm; provisional outer P gain.
+        self.straight_speed = 400.0 * RADIANS_PER_COUNT
+        self.base = Value(1000.0 * RADIANS_PER_COUNT)
+        self.gain = Value(30.0 * RADIANS_PER_COUNT)
         self.duration = Value(duration)
 
 
@@ -148,8 +148,10 @@ def main():
         motors.append(right)
         left = MotorDriver(Pin.cpu.B5, Pin.cpu.C7, Pin.cpu.C6, pwm, 2)
         motors.append(left)
-        r_encoder = Encoder(2, Pin.cpu.A15, Pin.cpu.B3)
-        l_encoder = Encoder(1, Pin.cpu.A8, Pin.cpu.A9)
+        r_encoder = Encoder(2, Pin.cpu.A15, Pin.cpu.B3,
+                            settings.encoder_counts_per_revolution)
+        l_encoder = Encoder(1, Pin.cpu.A8, Pin.cpu.A9,
+                            settings.encoder_counts_per_revolution)
         sensor = LineSensor()
         duty, velocity, loop = Value(None), Value(None), Value('open')
         exit_flag = ExitFlag()

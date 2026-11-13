@@ -12,6 +12,7 @@ from time import monotonic
 from matplotlib import pyplot
 from serial import Serial, SerialException
 from serial.tools import list_ports
+import romi_config as cfg
 
 # Set this to Romi's current VCP
 SERIAL_PORT = "COM8"
@@ -27,17 +28,19 @@ OUTPUT_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "res
 # baseline and adjust gains based on measured behavior. Keep the other conditions
 # fixed; periods, duration, preparation, voltage limits, and battery reference
 # remain firmware settings.
-# motor, command, K_P, K_I, K_FF, setpoint [counts/s].
+# motor, command, K_P, K_I, K_FF, setpoint [rad/s].
 # Zero I/FF preserves your P baseline. Enter manually verified loaded gains here.
 TESTS = (
-    ("left", "l", 0.004, 0.0, 0.0, 400.0),
-    ("right", "r", 0.004, 0.0, 0.0, 400.0),
+    ("left", "l", 0.004 * cfg.COUNTS_PER_RADIAN, 0.0, 0.0,
+     400.0 * cfg.RADIANS_PER_COUNT),
+    ("right", "r", 0.004 * cfg.COUNTS_PER_RADIAN, 0.0, 0.0,
+     400.0 * cfg.RADIANS_PER_COUNT),
 )
 
 LINE_ENDING = "\r\n"
 EXPECTED_HEADERS = (
-    "time_ms", "position_counts", "setpoint_counts_per_s",
-    "velocity_counts_per_s", "voltage_command_V")
+    "time_ms", "position_counts", "setpoint_rad_per_s",
+    "velocity_rad_per_s", "voltage_command_V")
 
 
 class FirmwareStoppedError(RuntimeError):
@@ -75,13 +78,15 @@ def validate_tests():
         if (motor, command) not in (("left", "l"), ("right", "r")):
             raise ValueError("Motor names and commands must match")
         validate_gains(kp, ki, kff)
-        if not isfinite(setpoint) or not -10000 < setpoint < 10000:
+        if not isfinite(setpoint) or not -cfg.Settings.setpoint_max < setpoint < cfg.Settings.setpoint_max:
             raise ValueError("Invalid setpoint")
         decimal_text(setpoint)
 
 
 def validate_gains(kp, ki, kff):
-    for value, bound in ((kp, 0.1), (ki, 1.0), (kff, 0.1)):
+    for value, bound in ((kp, cfg.Settings.kp_max),
+                         (ki, cfg.Settings.ki_max),
+                         (kff, cfg.Settings.kff_max)):
         if not isfinite(value) or not 0 <= value < bound:
             raise ValueError("Gain outside firmware entry range")
         decimal_text(value)
@@ -180,7 +185,7 @@ def send_CL_test_request(ser, command, kp, v_sp, ki=0.0, kff=0.0):
     confirmed = configure_gains(ser, kp, ki, kff,
                                 "left" if command == "l" else "right")
     send_command(ser, "v")
-    wait_for_text(ser, "Enter setpoint velocity [counts/s]: ")
+    wait_for_text(ser, "Enter setpoint velocity [rad/s]: ")
     confirmed_setpoint = send_number(ser, v_sp, "Velocity set to ")
     send_command(ser, command)
     return confirmed + (confirmed_setpoint,)
@@ -271,17 +276,24 @@ def validate_configuration(metadata, motor, kp, ki, kff, setpoint, previous):
         raise ValueError("MCU reported a different motor or control structure")
     for key, expected in (("proportional_gain", kp),
                           ("integral_gain", ki), ("feedforward_gain", kff),
-                          ("setpoint_counts_per_s", setpoint)):
+                          ("setpoint_rad_per_s", setpoint)):
         if not isclose(float(metadata[key]), expected, rel_tol=1e-5, abs_tol=1e-8):
             raise ValueError("MCU configuration differs from the request: " + key)
+    if (metadata.get("velocity_unit") != "rad/s"
+            or metadata.get("gain_unit") != "V/(rad/s)"
+            or metadata.get("integral_gain_unit") != "V/rad"
+            or int(metadata["encoder_counts_per_revolution"])
+            != cfg.ENCODER_COUNTS_PER_REVOLUTION):
+        raise ValueError("MCU reported unexpected angular-velocity units or encoder scale")
 
     # The header documents actual firmware settings; the PC does not set periods.
     fixed_keys = (
         "motor_period_ms", "ui_period_ms", "motor_priority", "ui_priority",
         "duration_ms", "expected_samples", "battery_voltage_V",
         "voltage_min_V", "voltage_max_V", "preparation_min_ms",
-        "rest_velocity_limit_counts_per_s", "rest_samples_required",
-        "velocity_unit", "gain_unit", "voltage_unit", "step_time_ms")
+        "rest_velocity_limit_rad_per_s", "rest_samples_required",
+        "velocity_unit", "gain_unit", "integral_gain_unit", "voltage_unit",
+        "encoder_counts_per_revolution", "step_time_ms")
     for key in fixed_keys:
         if key not in metadata:
             raise ValueError("Missing configuration field: " + key)
@@ -290,7 +302,7 @@ def validate_configuration(metadata, motor, kp, ki, kff, setpoint, previous):
 
 
 def validate_signals(metadata, columns):
-    setpoint = float(metadata["setpoint_counts_per_s"])
+    setpoint = float(metadata["setpoint_rad_per_s"])
     lower, upper = float(metadata["voltage_min_V"]), float(metadata["voltage_max_V"])
     for value in columns[2]:
         if not isclose(value, setpoint, rel_tol=1e-5, abs_tol=1e-6):
@@ -315,7 +327,7 @@ def save_plot(filename, metadata, columns):
     try:
         axes[0].plot(time_ms, velocity, color='black', label="Measured velocity")
         axes[0].plot(time_ms, setpoint, "--", color='black', label="Setpoint")
-        axes[0].set_ylabel("Velocity [counts/s]")
+        axes[0].set_ylabel("Angular velocity [rad/s]")
         axes[0].legend(loc='lower right')
         axes[0].grid(True, alpha=0.3)
 
@@ -331,10 +343,10 @@ def save_plot(filename, metadata, columns):
 
         figure.suptitle(
             "{} Motor PI-FF Velocity Response\n"
-            "Kp={}, Ki={}, Kff={}; setpoint={} counts/s; period={} ms".format(
+            "Kp={}, Ki={}, Kff={}; setpoint={} rad/s; period={} ms".format(
                 metadata["motor"].title(), metadata["proportional_gain"],
                 metadata["integral_gain"], metadata["feedforward_gain"],
-                metadata["setpoint_counts_per_s"], metadata["motor_period_ms"]),
+                metadata["setpoint_rad_per_s"], metadata["motor_period_ms"]),
             fontsize=11)
         figure.tight_layout(rect=(0, 0, 1, 0.94))
         # Opening the binary file exclusively prevents overwriting earlier plots.

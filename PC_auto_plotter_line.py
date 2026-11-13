@@ -10,17 +10,19 @@ from math import isfinite, isclose
 from matplotlib import pyplot
 from serial import Serial, SerialException
 import PC_auto_plotter_CL as pc
+import romi_config as cfg
 
 SERIAL_PORT = 'COM8'
 MODE = 'line'               # 'straight' is an equal-speed, outer-loop-off test.
-BASE_SPEED = 1000.0          # counts/s; use a speed verified under load.
-OUTER_K_P = 30.0             # (counts/s)/mm; starting value, tune on your robot.
+BASE_SPEED = 1000.0 * cfg.RADIANS_PER_COUNT  # Tune after verifying under load.
+OUTER_K_P = 30.0 * cfg.RADIANS_PER_COUNT     # (rad/s)/mm; starting value.
 DURATION_S = 5.0           # finite experiment; maximum is firmware setting (60 s).
-LEFT_GAINS = (0.001, 0.01, 0.002)   # K_P, K_I, K_FF: replace with loaded tuning.
-RIGHT_GAINS = (0.001, 0.01, 0.002)
+LEFT_GAINS = (0.001 * cfg.COUNTS_PER_RADIAN, 0.01 * cfg.COUNTS_PER_RADIAN,
+              0.002 * cfg.COUNTS_PER_RADIAN)
+RIGHT_GAINS = LEFT_GAINS
 HEADERS = ('time_ms', 'centroid_mm', 'total_weight',
-           'left_setpoint_counts_per_s', 'right_setpoint_counts_per_s',
-           'left_velocity_counts_per_s', 'right_velocity_counts_per_s',
+           'left_setpoint_rad_per_s', 'right_setpoint_rad_per_s',
+           'left_velocity_rad_per_s', 'right_velocity_rad_per_s',
            'left_voltage_V', 'right_voltage_V')
 
 
@@ -36,8 +38,8 @@ def request_run(ser):
     pc.send_command(ser, 'n')
     pc.wait_for_text(ser, 'Select b for base, p for outer gain, t for duration, g to go:')
     for command, prompt, ack, value in (
-            ('b', 'Enter base velocity [counts/s]: ', 'base set to ', BASE_SPEED),
-            ('p', 'Enter outer gain [(counts/s)/mm]: ', 'outer_gain set to ', OUTER_K_P),
+            ('b', 'Enter base velocity [rad/s]: ', 'base set to ', BASE_SPEED),
+            ('p', 'Enter outer gain [(rad/s)/mm]: ', 'outer_gain set to ', OUTER_K_P),
             ('t', 'Enter run duration [s]: ', 'duration set to ', DURATION_S)):
         pc.send_command(ser, command)
         pc.wait_for_text(ser, prompt)
@@ -50,7 +52,7 @@ def request_run(ser):
         pc.send_command(ser, 'k')
         pc.wait_for_text(ser, 'Select p/i/f for gains or v for setpoint velocity:')
         pc.send_command(ser, 'v')
-        pc.wait_for_text(ser, 'Enter setpoint velocity [counts/s]: ')
+        pc.wait_for_text(ser, 'Enter setpoint velocity [rad/s]: ')
         pc.send_number(ser, BASE_SPEED, 'Velocity set to ')
         pc.send_command(ser, 'b')
 
@@ -58,11 +60,17 @@ def request_run(ser):
 def validate_run(metadata, columns):
     if metadata.get('loop_type') != MODE:
         raise ValueError('Firmware returned the wrong experiment mode')
+    if (metadata.get('velocity_unit') != 'rad/s'
+            or metadata.get('kp_kff_unit') != 'V/(rad/s)'
+            or metadata.get('ki_unit') != 'V/rad'
+            or int(metadata['encoder_counts_per_revolution'])
+            != cfg.ENCODER_COUNTS_PER_REVOLUTION):
+        raise ValueError('Firmware reported unexpected angular-velocity units or encoder scale')
     # Failed preparation can legitimately produce an empty diagnostic dataset.
     if metadata.get('status') == 'failed' and not columns[0]:
         return
-    for key, expected in (('base_counts_per_s', BASE_SPEED),
-                          ('outer_gain_counts_per_s_per_mm', OUTER_K_P),
+    for key, expected in (('base_rad_per_s', BASE_SPEED),
+                          ('outer_gain_rad_per_s_per_mm', OUTER_K_P),
                           ('duration_s', DURATION_S)):
         if not isclose(float(metadata[key]), expected, rel_tol=1e-5, abs_tol=1e-6):
             raise ValueError('Configuration mismatch: ' + key)
@@ -74,7 +82,7 @@ def validate_run(metadata, columns):
         if isfinite(c) and abs(c) > 24.001:
             raise ValueError('Centroid outside sensor span')
     for column in columns[3:5]:
-        if any(v < 0 or v > float(metadata['wheel_max_counts_per_s']) + 1e-4 for v in column):
+        if any(v < 0 or v > float(metadata['wheel_max_rad_per_s']) + 1e-4 for v in column):
             raise ValueError('Wheel request outside recorded limits')
     for column in columns[7:9]:
         if any(v < float(metadata['voltage_min_V']) - 1e-4
@@ -93,7 +101,7 @@ def save_plot(filename, metadata, columns):
         for column, label, style in ((5, 'Left measured', '-'), (6, 'Right measured', '-'),
                                      (3, 'Left requested', '--'), (4, 'Right requested', '--')):
             axes[1].plot(seconds, columns[column], style, label=label)
-        axes[1].set_ylabel('Wheel velocity [counts/s]')
+        axes[1].set_ylabel('Wheel angular velocity [rad/s]')
         axes[2].plot(seconds, columns[7], label='Left voltage')
         axes[2].plot(seconds, columns[8], label='Right voltage')
         axes[2].set_ylabel('Voltage command [V]')
@@ -101,7 +109,7 @@ def save_plot(filename, metadata, columns):
         for axis in axes:
             axis.legend(loc='best', fontsize=8)
             axis.grid(True, alpha=0.3)
-        figure.suptitle('{}; status={}\nBase={} counts/s, outer Kp={} (counts/s)/mm\n'
+        figure.suptitle('{}; status={}\nBase={} rad/s, outer Kp={} (rad/s)/mm\n'
                        'Left PI-FF={}, right PI-FF={}; inner/outer periods={}/{} ms'.format(
                            MODE, metadata.get('status'), BASE_SPEED, OUTER_K_P,
                            LEFT_GAINS, RIGHT_GAINS, metadata.get('motor_period_ms'),
@@ -116,7 +124,9 @@ def save_plot(filename, metadata, columns):
 def main():
     if MODE not in ('line', 'straight'):
         raise ValueError('MODE must be line or straight')
-    if not (0 < BASE_SPEED < 3000 and 0 <= OUTER_K_P < 100 and 0 < DURATION_S <= 30):
+    if not (0 < BASE_SPEED < cfg.Settings.wheel_speed_max
+            and 0 <= OUTER_K_P < cfg.Settings.line_gain_max
+            and 0 < DURATION_S <= cfg.Settings.line_max_duration_s):
         raise ValueError('Requested settings exceed default firmware bounds')
     pc.validate_gains(*LEFT_GAINS)
     pc.validate_gains(*RIGHT_GAINS)

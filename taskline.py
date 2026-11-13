@@ -48,9 +48,10 @@ class TaskLine:
         self.sensor.max_read_us = 0
         self.data.metadata = {
             'loop_type': self.mode, 'control_structure': 'outer P / inner PI-FF',
-            'base_counts_per_s': self.base, 'outer_gain_counts_per_s_per_mm': self.gain,
-            'correction_limit_counts_per_s': self.limit,
-            'wheel_min_counts_per_s': 0, 'wheel_max_counts_per_s': s.wheel_speed_max,
+            'base_rad_per_s': self.base, 'outer_gain_rad_per_s_per_mm': self.gain,
+            'correction_limit_rad_per_s': self.limit,
+            'wheel_min_rad_per_s': 0, 'wheel_max_rad_per_s': s.wheel_speed_max,
+            'velocity_unit': 'rad/s',
             'duration_s': self.duration, 'motor_period_ms': s.motor_period_ms,
             'motor_priority': s.motor_priority, 'line_period_ms': s.line_period_ms,
             'line_priority': s.line_priority, 'ui_period_ms': s.ui_period_ms,
@@ -65,11 +66,12 @@ class TaskLine:
             'centroid_convention': 'positive left, zero centered; nan undefined',
             'telemetry_timing': 'latest motor snapshots, not simultaneous ADC samples',
             'feedforward_model': 'K_FF * wheel_setpoint',
-            'kp_kff_unit': 'V/(counts/s)', 'ki_unit': 'V/count',
+            'kp_kff_unit': 'V/(rad/s)', 'ki_unit': 'V/rad',
             'preparation_min_ms': s.preparation_min_ms,
-            'rest_velocity_limit_counts_per_s': s.rest_velocity_limit,
+            'rest_velocity_limit_rad_per_s': s.rest_velocity_limit,
             'rest_samples_required': s.rest_samples_required,
             'line_stale_ms': s.line_stale_ms,
+            'encoder_counts_per_revolution': cfg.ENCODER_COUNTS_PER_REVOLUTION,
         }
         for side, gains in self.gain_banks.items():
             for key in ('K_P', 'K_I', 'K_FF'):

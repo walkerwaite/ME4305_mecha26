@@ -1,9 +1,14 @@
 from time import ticks_us, ticks_diff # use to get dt value
+from math import pi
 import pyb
 
 class Encoder: # defines new class called encoder
     # initializes a newly created object's attributes and sets up its initial state
-    def __init__(self, tim: int, chA_pin: pyb.Pin, chB_pin: pyb.Pin): # defines init to require timer #, channels A&B pins
+    def __init__(self, tim: int, chA_pin: pyb.Pin, chB_pin: pyb.Pin,
+                 counts_per_revolution: int):
+        if counts_per_revolution <= 0:
+            raise ValueError("Counts per revolution must be positive")
+        self.counts_per_revolution = counts_per_revolution
 
         self._tim_n = pyb.Timer(tim, period = 0xFFFF, prescaler = 0) # sets prescalar and period
         self._tim_n.channel(1, pin=chA_pin, mode=pyb.Timer.ENC_AB) # sets channel A of timer to encode
@@ -40,11 +45,10 @@ class Encoder: # defines new class called encoder
         return self.position
 
     def get_velocity(self):
-        # Returns a measure of velocity using the the most recently updated
-        # value of delta as determined within the update() method
+        # Returns angular velocity in rad/s from the most recent update.
         if self.dt <= 0:
             return 0
-        return self.delta/self.dt
+        return (self.delta / self.dt) * (2 * pi / self.counts_per_revolution)
 
     def zero(self):
         # Sets the present encoder position to zero and causes future updates
