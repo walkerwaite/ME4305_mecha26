@@ -18,15 +18,15 @@ CALIBRATION_FILE = "line_calibration.json"
 
 class Settings:
     motor_period_ms = 40
-    motor_priority = 3
+    motor_priority = 2
 
     # Include motion period and priority
-    motion_period_ms = 40
-    motion_priority = 2
+    motion_period_ms = 60
+    motion_priority = 1
     line_period_ms = motion_period_ms
 
-    ui_period_ms = 40
-    ui_priority = 1
+    ui_period_ms = 0
+    ui_priority = 0
     samples_after_initial = 100
     battery_voltage = 9.0     # Update to your measured battery reference.
     voltage_min = -4.5

@@ -38,27 +38,27 @@ class TaskMotion:
         self.state = S0_IDLE
         self.started = False
 
-def _update_imu(self):
-    # Keep a previous fault visible to the motion task.
-    if self.imu_data.fault:
-        self.imu_data.valid = False
-        return
+    def _update_imu(self):
+        # Keep a previous fault visible to the motion task.
+        if self.imu_data.fault:
+            self.imu_data.valid = False
+            return
 
-    try:
-        heading = self.imu.get_heading()
-        yaw_rate = self.imu.get_yaw_rate()
+        try:
+            heading = self.imu.get_heading()
+            yaw_rate = self.imu.get_yaw_rate()
 
-        if not (isfinite(heading) and isfinite(yaw_rate)):
-            raise ValueError("Nonfinite IMU measurement")
+            if not (isfinite(heading) and isfinite(yaw_rate)):
+                raise ValueError("Nonfinite IMU measurement")
 
-        self.imu_data.heading_rad = heading
-        self.imu_data.yaw_rate_rad_s = yaw_rate
-        self.imu_data.updated_us = ticks_us()
-        self.imu_data.valid = True
+            self.imu_data.heading_rad = heading
+            self.imu_data.yaw_rate_rad_s = yaw_rate
+            self.imu_data.updated_us = ticks_us()
+            self.imu_data.valid = True
 
-    except (OSError, ValueError, RuntimeError) as error:
-        self.imu_data.valid = False
-        self.imu_data.fault = str(error) or "IMU read failed"     
+        except (OSError, ValueError, RuntimeError) as error:
+            self.imu_data.valid = False
+            self.imu_data.fault = str(error) or "IMU read failed"     
 
     def _prepare(self):
         r, s = self.run_request, self.settings
